@@ -81,7 +81,7 @@ def get_rrc_data(a:str):
     returning_data = {}
 
     for rrc_dict in data["data"]["rrcs"]:
-        rrc_name = rrc_dict["rrc"]
+        rrc_name = f"{rrc_dict['rrc']} - {rrc_dict['location']}"
 
         if (rrc_name not in returning_data):
             returning_data[rrc_name] = []
