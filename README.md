@@ -29,3 +29,7 @@ Or:
 ```
 python3 ripe-lg-graph.py 2606:4700:4700::/48
 ```
+
+## Example output
+
+![Cloudflare DNS](https://btw.i-use-ar.ch/i/zfvlw996.svg)

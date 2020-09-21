@@ -164,7 +164,7 @@ def make_bgpmap(rrc:str, paths:list):
                 e.set_label(label)
         return edges[edge_tuple]
 
-    add_node(rrc, label= f"{rrc.upper()}", shape="box", fillcolor="#F5A9A9")
+    add_node(rrc, label=rrc, shape="box", fillcolor="#F5A9A9")
 
     previous_as = None
     first = True
