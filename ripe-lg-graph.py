@@ -70,7 +70,10 @@ def get_rrc_data(a:str):
 
     if (data["messages"]):
         for message_array in data["messages"]:
-            print(f"RIPE {message_array[0]}: {message_array[1]}")
+            if (message_array[0].lower() == "error"):
+                raise Exception(message_array[1])
+            else:
+                print(f"RIPE {message_array[0]}: {message_array[1]}")
 
     if (len(data["data"]["rrcs"]) == 0):
         raise AddressOrPrefixNotFoundError("Prefix or address is not found on RIPE NCC's RIS.")
