@@ -98,7 +98,7 @@ def get_rrc_data(a:str):
 
             returning_data[rrc_name].append(" ".join(as_path_list))
 
-    return returning_data
+    return dict(sorted(returning_data.items()))
 
 
 def query_asn_info(n:str):
@@ -121,6 +121,8 @@ def get_as_name(_as):
 
 
 def make_bgpmap(rrc:str, paths:list):
+    print(f"Now processing: {rrc}")
+
     graph = pydot.Dot('BGPMAP', graph_type='digraph')
 
     nodes = {}
@@ -227,6 +229,6 @@ if __name__ == "__main__":
         os.makedirs(f"./output/{target_folder}/svg")
         for rrc, paths in rrc_path_data.items():
             make_bgpmap(rrc, paths)
-        print("Done!")
+        print("\nDone!")
     else:
         raise AddressOrPrefixNotFoundError("Entered address or prefix is invalid.")

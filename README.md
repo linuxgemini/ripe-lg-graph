@@ -2,7 +2,7 @@
 
 A somewhat hacky way to have bgpmap data from RIPE NCC's RIS. Does not take count the prepends.
 
-**Requires >=python3.6.**
+**Requires >=python3.7.**
 
 ## Dependencies
 
