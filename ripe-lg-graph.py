@@ -10,6 +10,8 @@ import os
 import pydot
 import random
 import requests
+import shutil
+import sys
 
 looking_glass_url = "https://stat.ripe.net/data/looking-glass/data.json"
 
@@ -64,6 +66,7 @@ def get_rrc_data(a:str):
     parted_url[4] = urlencode(query)
     final_url = urlunparse(parted_url)
 
+    print("Contacting RIPE NCC RIS looking glass...")
     r = requests.get(final_url)
     r.raise_for_status()
     data = r.json()
@@ -138,8 +141,9 @@ def make_bgpmap(rrc:str, paths:list):
         return label
 
     def add_node(_as, **kwargs):
+        carriage_return = "\r"
         if _as not in nodes:
-            kwargs["label"] = '<<TABLE CELLBORDER="0" BORDER="0" CELLPADDING="0" CELLSPACING="0"><TR><TD ALIGN="CENTER">' + escape(kwargs.get("label", get_as_name(_as))).replace("\r","<BR/>") + "</TD></TR></TABLE>>"
+            kwargs["label"] = f"<<TABLE CELLBORDER=\"0\" BORDER=\"0\" CELLPADDING=\"0\" CELLSPACING=\"0\"><TR><TD ALIGN=\"CENTER\">{escape(kwargs.get('label', get_as_name(_as))).replace(carriage_return,'<BR/>')}</TD></TR></TABLE>>"
             nodes[_as] = pydot.Node(_as, style="filled", fontsize="10", **kwargs)
             graph.add_node(nodes[_as])
         return nodes[_as]
@@ -186,7 +190,7 @@ def make_bgpmap(rrc:str, paths:list):
                 if first:
                     hop_label = hop_label + "*"
 
-            if _as == asmap[-1]:
+            if (_as == asmap[-1]):
                 add_node(_as, fillcolor="#F5A9A9", shape="box")
             else:
                 add_node(_as, fillcolor=(first and "#F5A9A9" or "white"))
@@ -197,7 +201,7 @@ def make_bgpmap(rrc:str, paths:list):
 
             hop_label = ""
 
-            if first or _as == asmap[-1]:
+            if (first or _as == asmap[-1]):
                 edge.set_style("bold")
                 edge.set_color("red")
             elif edge.get_style() != "bold":
@@ -207,14 +211,22 @@ def make_bgpmap(rrc:str, paths:list):
             previous_as = _as
         first = False
 
-    add_node(target, fillcolor="#F5A9A9", shape="box")
-    final_edge = add_edge(nodes[_as], nodes[target], fontsize="7")
+    add_node("Prefix", label=target, fillcolor="#F5A9A9", shape="box")
+    final_edge = add_edge(nodes[_as], nodes["Prefix"], fontsize="7")
     final_edge.set_style("bold")
     final_edge.set_color("red")
 
     graph.write(f"./output/{target_folder}/png/{rrc}.png", format="png")
     graph.write(f"./output/{target_folder}/svg/{rrc}.svg", format="svg")
     return True
+
+
+def except_clearence_hook(exctype, value, traceback):
+    if (os.path.exists(f"./output/{target_folder}")):
+        shutil.rmtree(f"./output/{target_folder}")
+    sys.__excepthook__(exctype, value, traceback)
+
+sys.excepthook = except_clearence_hook
 
 
 if __name__ == "__main__":
