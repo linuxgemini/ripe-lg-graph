@@ -233,7 +233,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Create a routing graph with data from RIPE NCC's RIS.")
 
     parser.add_argument(
-        "address_prefix", help="IP prefix or address, will not search for the nearest ", type=str
+        "address_prefix", help="IP prefix or address, will not search for the nearest announced object.", type=str
     )
 
     args = parser.parse_args()
