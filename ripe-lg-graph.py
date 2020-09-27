@@ -3,6 +3,7 @@
 
 from datetime import datetime
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
+from types import TracebackType
 import argparse
 import dns.resolver
 import ipaddress
@@ -12,6 +13,7 @@ import random
 import requests
 import shutil
 import sys
+import typing
 
 looking_glass_url = "https://stat.ripe.net/data/looking-glass/data.json"
 
@@ -33,35 +35,35 @@ class AddressOrPrefixNotFoundError(Exception):
         super().__init__(message)
 
 
-def is_valid(a:str):
+def is_valid(address_prefix:str) -> bool:
     try:
-        ipaddress.ip_address(a)
+        ipaddress.ip_address(address_prefix)
         return True
     except ValueError:
         try:
-            ipaddress.ip_network(a, strict=True)
+            ipaddress.ip_network(address_prefix, strict=True)
             return True
         except ValueError:
             return False
 
 
-def form_params(a:str=""):
+def form_params(resource_param:str="") -> typing.Dict[str, str]:
     params = {
         "sourceapp": sourceapp_name,
         "soft_limit": "ignore"
     }
 
-    if (a != ""):
-        params["resource"] = a
+    if (resource_param != ""):
+        params["resource"] = resource_param
 
     return params
 
 
-def get_rrc_data(a:str):
+def get_rrc_data(address_prefix:str) -> typing.Dict[str, typing.List[str]]:
     parted_url = list(urlparse(looking_glass_url))
     
     query = dict(parse_qsl(parted_url[4]))
-    query.update(form_params(a))
+    query.update(form_params(address_prefix))
 
     parted_url[4] = urlencode(query)
     final_url = urlunparse(parted_url)
@@ -107,15 +109,15 @@ def get_rrc_data(a:str):
     return dict(sorted(returning_data.items()))
 
 
-def query_asn_info(n:str):
+def query_asn_info(asn:str) -> str:
     try:
-        data = dns.resolver.query(f"AS{n}.asn.cymru.com", "TXT").response.answer[0][-1].to_text().replace("'","").replace('"','')
+        data = dns.resolver.query(f"AS{asn}.asn.cymru.com", "TXT").response.answer[0][-1].to_text().replace("'","").replace('"','')
     except:
         return " "*5
     return [ field.strip() for field in data.split("|") ]
 
 
-def get_as_name(_as):
+def get_as_name(_as:str) -> str:
     if not _as:
         return "AS?????"
 
@@ -126,7 +128,7 @@ def get_as_name(_as):
     return f"AS{_as} | {name}"
 
 
-def make_bgpmap(rrc:str, paths:list):
+def make_bgpmap(rrc:str, paths:typing.List[str]) -> True:
     print(f"Now processing: {rrc}")
 
     graph = pydot.Dot('BGPMAP', graph_type='digraph')
@@ -221,7 +223,7 @@ def make_bgpmap(rrc:str, paths:list):
     return True
 
 
-def except_clearence_hook(exctype, value, traceback):
+def except_clearence_hook(exctype:typing.Type[BaseException], value:BaseException, traceback:TracebackType) -> None:
     if (os.path.exists(f"./output/{target_folder}")):
         shutil.rmtree(f"./output/{target_folder}")
     sys.__excepthook__(exctype, value, traceback)
