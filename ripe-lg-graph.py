@@ -1,28 +1,30 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
-from datetime import datetime
-from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
-from types import TracebackType
 import argparse
 import dns.resolver
+import pydot
 import ipaddress
 import os
-import pydot
 import random
 import requests
 import shutil
 import sys
 import typing
 
+from datetime import datetime
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
+from types import TracebackType
+
 looking_glass_url = "https://stat.ripe.net/data/looking-glass/data.json"
 
-# please check https://stat.ripe.net/docs/data_api#RulesOfUsage
+# See: https://stat.ripe.net/docs/data_api#RulesOfUsage
 sourceapp_name = "ripe-lg-graph_py"
 
 # DON'T TOUCH IF YOU DON'T KNOW WHAT YOU'RE DOING
 target_folder = datetime.now().strftime("%Y-%m-%d %H%M%S")
 target = ""
+
 
 class AddressOrPrefixNotFoundError(Exception):
     """Exception raised for errors in the input.
@@ -81,7 +83,7 @@ def form_params(resource_param:str="") -> typing.Dict[str, str]:
 
 def get_rrc_data(address_prefix:str, rrc_list:typing.Union[str, typing.List[str]]="") -> typing.Dict[str, typing.Dict[str, typing.Union[str, typing.List[str]]]]:
     parted_url = list(urlparse(looking_glass_url))
-    
+
     query = dict(parse_qsl(parted_url[4]))
     query.update(form_params(address_prefix))
 
@@ -150,7 +152,9 @@ def get_rrc_data(address_prefix:str, rrc_list:typing.Union[str, typing.List[str]
 
 def query_asn_info(asn:str) -> str:
     try:
-        data = dns.resolver.query(f"AS{asn}.asn.cymru.com", "TXT").response.answer[0][-1].to_text().replace("'","").replace('"','')
+        data = dns.resolver.resolve(
+            f"AS{asn}.asn.cymru.com", "TXT"
+        ).response.answer[0][-1].to_text().replace("'","").replace('"','')
     except:
         return " "*5
     return [ field.strip() for field in data.split("|") ]
@@ -184,10 +188,12 @@ def make_bgpmap(rrc:str, rrc_data_dict:typing.Dict[str, typing.Union[str, typing
 
     def add_node(_as, **kwargs):
         carriage_return = "\r"
+
         if _as not in nodes:
-            kwargs["label"] = f"<<TABLE CELLBORDER=\"0\" BORDER=\"0\" CELLPADDING=\"0\" CELLSPACING=\"0\"><TR><TD ALIGN=\"CENTER\">{escape(kwargs.get('label', get_as_name(_as))).replace(carriage_return,'<BR/>')}</TD></TR></TABLE>>"
+           kwargs["label"] = f"<<TABLE CELLBORDER=\"0\" BORDER=\"0\" CELLPADDING=\"0\" CELLSPACING=\"0\"><TR><TD ALIGN=\"CENTER\">{escape(kwargs.get('label', get_as_name(_as))).replace(carriage_return,'<BR/>')}</TD></TR></TABLE>>"
             nodes[_as] = pydot.Node(_as, style="filled", fontsize="10", **kwargs)
             graph.add_node(nodes[_as])
+
         return nodes[_as]
 
     def add_edge(_previous_as, _as, **kwargs):
@@ -195,37 +201,43 @@ def make_bgpmap(rrc:str, rrc_data_dict:typing.Dict[str, typing.Union[str, typing
         force = kwargs.get("force", False)
 
         edge_tuple = (_previous_as, _as)
+
         if force or edge_tuple not in edges:
             edge = pydot.Edge(*edge_tuple, **kwargs)
             graph.add_edge(edge)
             edges[edge_tuple] = edge
         elif "label" in kwargs and kwargs["label"]:
             e = edges[edge_tuple]
-
             label_without_star = kwargs["label"].replace("*", "")
+
             if e.get_label() is not None:
                 labels = e.get_label().split("\r")
             else:
                 return edges[edge_tuple]
+
             if "%s*" % label_without_star not in labels:
                 labels = [ kwargs["label"] ]  + [ l for l in labels if not l.startswith(label_without_star) ]
                 labels = sorted(labels, key=lambda x: x.endswith("*") and -1 or 1)
 
                 label = escape("\r".join(labels))
                 e.set_label(label)
+
         return edges[edge_tuple]
 
     add_node(rrc_full, label=rrc, shape="box", fillcolor="#F5A9A9")
 
     previous_as = None
     first = True
+
     for asmap in rrc_data_dict["paths"]:
         previous_as = rrc_full
         color = "#%x" % random.randint(0, 16777215)
 
         hop = False
         hop_label = ""
+
         for _as in asmap.split(" "):
+
             if not hop:
                 hop = True
                 hop_label = _as
@@ -236,6 +248,7 @@ def make_bgpmap(rrc:str, rrc_data_dict:typing.Dict[str, typing.Union[str, typing
                 add_node(_as, fillcolor="#F5A9A9", shape="box")
             else:
                 add_node(_as, fillcolor=(first and "#F5A9A9" or "white"))
+
             if hop_label:
                 edge = add_edge(nodes[previous_as], nodes[_as], label=hop_label, fontsize="7")
             else:
@@ -251,6 +264,7 @@ def make_bgpmap(rrc:str, rrc_data_dict:typing.Dict[str, typing.Union[str, typing
                 edge.set_color(color)
 
             previous_as = _as
+
         first = False
 
     add_node("Prefix", label=target, fillcolor="#F5A9A9", shape="box")
@@ -260,6 +274,7 @@ def make_bgpmap(rrc:str, rrc_data_dict:typing.Dict[str, typing.Union[str, typing
 
     graph.write(f"./output/{target_folder}/png/{rrc}.png", format="png")
     graph.write(f"./output/{target_folder}/svg/{rrc}.svg", format="svg")
+
     return True
 
 
@@ -289,9 +304,11 @@ if __name__ == "__main__":
 
         os.makedirs(f"./output/{target_folder}/png")
         os.makedirs(f"./output/{target_folder}/svg")
+
         for rrc, rrc_data_dict in rrc_path_data.items():
             make_bgpmap(rrc, rrc_data_dict)
 
         print("\nDone!")
     else:
         raise AddressOrPrefixNotFoundError("Entered address or prefix is invalid.")
+
