@@ -15,7 +15,7 @@ Other than the external dependency, you can do `python3 -m pip install -r requir
 ## Usage
 
 ```
-python3 ripe-lg-graph.py <ip or prefix>
+python3 ripe-lg-graph.py [--rrc 6,24] <ip or prefix>
 ```
 
 For example:
