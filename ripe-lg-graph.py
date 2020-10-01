@@ -47,6 +47,26 @@ def is_valid(address_prefix:str) -> bool:
             return False
 
 
+def process_rrc_options(raw_rrc_list_str:str) -> typing.Union[str, typing.List[str]]:
+    returning_list = []
+
+    if raw_rrc_list_str.isdigit():
+        rrc_id = int(raw_rrc_list_str)
+        returning_list.append(f"{rrc_id:02}")
+    elif "," in raw_rrc_list_str:
+        raw_list = raw_rrc_list_str.split(",")
+        for rrc_id_str in raw_list:
+            if not rrc_id_str.isdigit():
+                continue
+            rrc_id = int(rrc_id_str)
+            returning_list.append(f"{rrc_id:02}")
+
+    if len(returning_list) != 0:
+        return returning_list
+    else:
+        return ""
+
+
 def form_params(resource_param:str="") -> typing.Dict[str, str]:
     params = {
         "sourceapp": sourceapp_name,
@@ -59,7 +79,7 @@ def form_params(resource_param:str="") -> typing.Dict[str, str]:
     return params
 
 
-def get_rrc_data(address_prefix:str) -> typing.Dict[str, typing.List[str]]:
+def get_rrc_data(address_prefix:str, rrc_list:typing.Union[str, typing.List[str]]="") -> typing.Dict[str, typing.Dict[str, typing.Union[str, typing.List[str]]]]:
     parted_url = list(urlparse(looking_glass_url))
     
     query = dict(parse_qsl(parted_url[4]))
@@ -86,13 +106,16 @@ def get_rrc_data(address_prefix:str) -> typing.Dict[str, typing.List[str]]:
     global target
     target = data["data"]["parameters"]["resource"]
 
-    returning_data = {}
+    raw_returning_data = {}
 
     for rrc_dict in data["data"]["rrcs"]:
-        rrc_name = f"{rrc_dict['rrc']} - {rrc_dict['location']}"
+        rrc_name = rrc_dict['rrc']
 
-        if (rrc_name not in returning_data):
-            returning_data[rrc_name] = []
+        if (rrc_name not in raw_returning_data):
+            raw_returning_data[rrc_name] = {
+                "location": rrc_dict["location"],
+                "paths": []
+            }
 
         for rrc_peer in rrc_dict["peers"]:
             as_path = rrc_peer["as_path"]
@@ -104,9 +127,25 @@ def get_rrc_data(address_prefix:str) -> typing.Dict[str, typing.List[str]]:
                     continue
                 as_path_list.append(as_number)
 
-            returning_data[rrc_name].append(" ".join(as_path_list))
+            raw_returning_data[rrc_name]["paths"].append(" ".join(as_path_list))
 
-    return dict(sorted(returning_data.items()))
+    if rrc_list == "":
+        print("Processing all available RRCs...")
+        returning_data = dict(sorted(raw_returning_data.items()))
+    else:
+        pre_proc_returning_data = {}
+        for rrc in rrc_list:
+            rrc_name = f"RRC{rrc}"
+            if rrc_name not in raw_returning_data:
+                print(f"{rrc_name} is either invalid or not found, skipping...")
+                continue
+            pre_proc_returning_data[rrc_name] = raw_returning_data[rrc_name]
+        if len(pre_proc_returning_data) == 0:
+            print("None of the specified RRCs are in the result list, passing all RRCs...")
+            pre_proc_returning_data = raw_returning_data
+        returning_data = dict(sorted(pre_proc_returning_data.items()))
+
+    return returning_data
 
 
 def query_asn_info(asn:str) -> str:
@@ -128,8 +167,9 @@ def get_as_name(_as:str) -> str:
     return f"AS{_as} | {name}"
 
 
-def make_bgpmap(rrc:str, paths:typing.List[str]) -> True:
-    print(f"Now processing: {rrc}")
+def make_bgpmap(rrc:str, rrc_data_dict:typing.Dict[str, typing.Union[str, typing.List[str]]]) -> True:
+    rrc_full = f"{rrc} - {rrc_data_dict['location']}"
+    print(f"Now processing: {rrc_full}")
 
     graph = pydot.Dot('BGPMAP', graph_type='digraph')
 
@@ -175,12 +215,12 @@ def make_bgpmap(rrc:str, paths:typing.List[str]) -> True:
                 e.set_label(label)
         return edges[edge_tuple]
 
-    add_node(rrc, label=rrc, shape="box", fillcolor="#F5A9A9")
+    add_node(rrc_full, label=rrc, shape="box", fillcolor="#F5A9A9")
 
     previous_as = None
     first = True
-    for asmap in paths:
-        previous_as = rrc
+    for asmap in rrc_data_dict["paths"]:
+        previous_as = rrc_full
         color = "#%x" % random.randint(0, 16777215)
 
         hop = False
@@ -235,17 +275,23 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Create a routing graph with data from RIPE NCC's RIS.")
 
     parser.add_argument(
+        "--rrc", help="ID(s) of the RRC for graphing, process all if none specified (comma seperated if multiple)", type=str, required=False, default=""
+    )
+
+    parser.add_argument(
         "address_prefix", help="IP prefix or address, will not search for the nearest announced object.", type=str
     )
 
     args = parser.parse_args()
 
     if (is_valid(args.address_prefix)):
-        rrc_path_data = get_rrc_data(args.address_prefix)
+        rrc_path_data = get_rrc_data(args.address_prefix, process_rrc_options(args.rrc))
+
         os.makedirs(f"./output/{target_folder}/png")
         os.makedirs(f"./output/{target_folder}/svg")
-        for rrc, paths in rrc_path_data.items():
-            make_bgpmap(rrc, paths)
+        for rrc, rrc_data_dict in rrc_path_data.items():
+            make_bgpmap(rrc, rrc_data_dict)
+
         print("\nDone!")
     else:
         raise AddressOrPrefixNotFoundError("Entered address or prefix is invalid.")
