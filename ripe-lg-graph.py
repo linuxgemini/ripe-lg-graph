@@ -191,8 +191,8 @@ def make_bgpmap(rrc:str, rrc_data_dict:typing.Dict[str, typing.Union[str, typing
 
         if _as not in nodes:
            kwargs["label"] = f"<<TABLE CELLBORDER=\"0\" BORDER=\"0\" CELLPADDING=\"0\" CELLSPACING=\"0\"><TR><TD ALIGN=\"CENTER\">{escape(kwargs.get('label', get_as_name(_as))).replace(carriage_return,'<BR/>')}</TD></TR></TABLE>>"
-            nodes[_as] = pydot.Node(_as, style="filled", fontsize="10", **kwargs)
-            graph.add_node(nodes[_as])
+           nodes[_as] = pydot.Node(_as, style="filled", fontsize="10", **kwargs)
+           graph.add_node(nodes[_as])
 
         return nodes[_as]
 
