@@ -222,7 +222,7 @@ def make_bgpmap(rrc:str, rrc_data_dict:typing.Dict[str, typing.Union[str, typing
 
         return edges[edge_tuple]
 
-    add_node(rrc_full, label=rrc, shape="box", fillcolor="#F5A9A9")
+    add_node(rrc_full, label=rrc_full, shape="box", fillcolor="#F5A9A9")
 
     previous_as = None
     first = True
