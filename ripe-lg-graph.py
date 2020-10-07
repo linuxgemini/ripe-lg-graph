@@ -152,7 +152,7 @@ def get_rrc_data(address_prefix:str, rrc_list:typing.Union[str, typing.List[str]
 
 def query_asn_info(asn:str) -> str:
     try:
-        data = dns.resolver.query(f"AS{asn}.asn.cymru.com", "TXT").response.answer[0][-1].to_text().replace("'","").replace('"','')
+        data = dns.resolver.query(f"AS{asn}.asn.cymru.com", "TXT").response.answer[0][0].to_text().replace("'","").replace('"','')
     except:
         return " "*5
     return [ field.strip() for field in data.split("|") ]
